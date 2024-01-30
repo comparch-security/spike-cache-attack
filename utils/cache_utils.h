@@ -3,8 +3,8 @@
 void     clflush            (void *p);
 void     clflush_f          (void *p);
 
-uint64_t rdtsc              (void);
-uint64_t rdtscp64           (void);
+//uint64_t rdtsc              (void);
+//uint64_t rdtscp64           (void);
 
 void     maccess            (void *p);
 void     mwrite             (void *v);
@@ -19,3 +19,5 @@ int      time_flush         (void *adrs);
 #define  flush_nofence(x)    clflush(x)
 #define  memwrite(x)         mwrite(x)
 #define  memread(x)          mread(x)
+
+int      llc_hit             (void *p);

@@ -2,11 +2,13 @@ THIS_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 EVSET_DIR := ../evsets
 UTILS_DIR := ../utils
 
+CC = riscv64-unknown-linux-gnu-gcc
+
 ##################
 # Build directory
 ##################
 OBJDIR  = obj
-CFLAGS += -I./$(OBJDIR) 
+CFLAGS += -I./$(OBJDIR)
 CFLAGS += -I$(EVSET_DIR)/$(OBJDIR)
 CFLAGS += -I$(UTILS_DIR)/$(OBJDIR)
 CFLAGS += -Wall
@@ -32,7 +34,7 @@ app: $(OBJS_APP) $(OBJS_EVS) $(OBJS_UTL)
 	$(CC) -o $@ $^ $(LDFLAGS) -lm
 
 utils:
-	$(MAKE) -C $(UTILS_DIR) 
+	CC=$(CC) $(MAKE) -C $(UTILS_DIR) 
 
 evsets:
 	$(MAKE) -C $(EVSET_DIR) CONFIG_FILE=$(THIS_DIR)/configuration.h
