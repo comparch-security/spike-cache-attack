@@ -29,57 +29,44 @@
   while(*synchronization==1);                                      })
 */
 
-#define HELPER_READ_ACCESS(x)   ({                                \
-  while(ht_params[0]->rv == 0);                                   \
-  ht_params[0]->rv           = 0;                                 \
-  ht_params[0]->syn_addr     = (uint8_t*)(x);                     \
-  ht_params[0]->fun          = HPT_FUN_ACC_SYN;                   \
-  while(ht_params[0]->rv == 0);                                   })
+#define HELPER_READ_ACCESS(x)   ({                             \
+  while(ht_params->rv == 0) sched_yield();                     \
+  ht_params->rv           = 0;                                 \
+  ht_params->syn_addr     = (uint8_t*)(x);                     \
+  ht_params->fun          = HPT_FUN_ACC_SYN;                   \
+  while(ht_params->rv == 0) sched_yield();                     })
 
-#define HELPER_READ_ACCESS_NOBLK(x)   ({                          \
-  while(ht_params[0]->rv == 0);                                   \
-  ht_params[0]->rv           = 0;                                 \
-  ht_params[0]->syn_addr     = (uint8_t*)(x);                     \
-  ht_params[0]->fun          = HPT_FUN_ACC_SYN;                  })
+#define HELPER_CHECK(x)   ({                                   \
+  while(ht_params->rv == 0) sched_yield();                     \
+  ht_params->rv           = 0;                                 \
+  ht_params->victim       = (uint8_t*)(x);                     \
+  ht_params->fun          = HPT_FUN_CHECK;                     \
+  while(ht_params->rv == 0) sched_yield();                     \
+  ht_params->rv - 1;                                           })
 
-#define HELPER_CHECK_ACCESS_START(x)   ({                         \
-  while(ht_params[0]->rv == 0);                                   \
-  *synchronization           = 0;                                 \
-  ht_params[1]->rv           = 0;                                 \
-  ht_params[1]->victim       = (uint8_t*)(x);                     \
-  ht_params[1]->fun          = HPT_FUN_CHECK;                     })
+#define HELPER_READ_ACCESS_NOBLK(x)   ({                       \
+  while(ht_params->rv == 0) sched_yield();                     \
+  ht_params->rv           = 0;                                 \
+  ht_params->syn_addr     = (uint8_t*)(x);                     \
+  ht_params->fun          = HPT_FUN_ACC_SYN;                  })
 
-#define TOGHTER_READ_ACCESS(x)   ({                                \
-  while(ht_params[0]->rv == 0);                                    \
-  ht_params[0]->rv           = 0;                                  \
-  ht_params[0]->syn_addr     = (uint8_t*)(x);                      \
-  ht_params[0]->fun          = HPT_FUN_ACC_SYN;                    \
-  maccess((void*)x);                                               \
-  while(ht_params[0]->rv == 0);                                    })
+#define TOGHTER_READ_ACCESS(x)   ({                             \
+  while(ht_params->rv == 0);                                    \
+  ht_params->rv           = 0;                                  \
+  ht_params->syn_addr     = (uint8_t*)(x);                      \
+  ht_params->fun          = HPT_FUN_ACC_SYN;                    \
+  maccess((void*)x);                                            \
+  while(ht_params->rv == 0) sched_yield();                      })
 
-#define TOGHTER_READ_ACCESS_NOBLK(x)   ({                          \
-  while(ht_params[0]->rv == 0);                                    \
-  ht_params[0]->rv           = 0;                                  \
-  ht_params[0]->syn_addr     = (uint8_t*)(x);                      \
-  ht_params[0]->fun          = HPT_FUN_ACC_SYN;                    \
-  maccess((void*)x);                                               })
-
-/*
-#define HELPER_READ_ACCESS_NONBLOCK(x)   ({                        \
-  while(*synchronization==1);                                      \
-  *synchronization_params = (volatile uint64_t)x;                  \
-  *synchronization  = 1;                                           })
-
-#define TOGHTER_READ_ACCESS(x)   ({                                \
-  *synchronization_params = (volatile uint64_t)x;                  \
-  *synchronization  = 1;                                           \
-  maccess((void*)x);                                               \
-  while(*synchronization==1);                                      })
-*/
-
+#define TOGHTER_READ_ACCESS_NOBLK(x)   ({                       \
+  while(ht_params->rv == 0) sched_yield();                      \
+  ht_params->rv           = 0;                                  \
+  ht_params->syn_addr     = (uint8_t*)(x);                      \
+  ht_params->fun          = HPT_FUN_ACC_SYN;                    \
+  maccess((void*)x);                                            })
 
 #define KILL_HELPER()   ({                                          \
-    for(int i = 0;i <HPTHREADS;i++)   ht_params[i]->fun = HPT_FUN_EXIT;                                   })
+  ht_params->fun = HPT_FUN_EXIT;                                   })
   while(*synchronization==99);                                      })
 
 #define HELPER_TIME_ACCESS(x)   ({                                 \

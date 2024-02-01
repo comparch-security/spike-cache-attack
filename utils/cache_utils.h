@@ -1,5 +1,6 @@
 #pragma once
 
+void     fence              ();
 void     clflush            (void *p);
 void     clflush_f          (void *p);
 
@@ -21,3 +22,6 @@ int      time_flush         (void *adrs);
 #define  memread(x)          mread(x)
 
 int      llc_hit             (void *p);
+int      check_mread         (void *p);
+void     set_congrunt_target (void *p);
+int      check_congrunt      (void *p);

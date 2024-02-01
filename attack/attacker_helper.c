@@ -15,14 +15,12 @@ extern volatile uint64_t *synchronization2;
 extern volatile uint64_t *synchronization3;
 extern volatile uint64_t *synchronization_params;
 
-extern volatile helpThread_t* ht_params[HPTHREADS];
+extern volatile helpThread_t* ht_params;
 
 void attacker_helper() {
 
   //////////////////////////////////////////////////////////////////////////////
   // Prepare variables for test cache access times
-
-  #define FENCE asm volatile ("mfence\n\t lfence\n\t");
 
   // Add a time limit to the helper process to prevent it from becoming a zombie process
 
@@ -39,7 +37,7 @@ void attacker_helper() {
     if (*synchronization == 1) {
       /* Implements the HELPER_READ_ACCESS() macro */
       memread((void*)*synchronization_params); 
-      FENCE
+      fence();
       *synchronization = 0;
     }
   }
@@ -49,72 +47,64 @@ void attacker_helper() {
 
 }
 
-void new_attacker_helper(int id) {
+void new_attacker_helper() {
 
   //////////////////////////////////////////////////////////////////////////////
   // Prepare variables for test cache access times
   int i;
 
-  volatile helpThread_t *myparams = ht_params[id];
-  printf("new_attacker_helper id %d myparams  %p\n", id, myparams);
-  //  printf("myparams id %d %p\n", id, ht_params[id]);
-  //
-  #define FENCE asm volatile ("mfence\n\t lfence\n\t");
+  volatile helpThread_t *myparams = ht_params;
+
   uint64_t drain, prime, time;
+
   // Add a time limit to the helper process to prevent it from becoming a zombie process
-  while(1) {
-    while(myparams->fun == HPT_FUN_IDLE);
+  while(true) {
+    while(myparams->fun == HPT_FUN_IDLE) sched_yield();
+
     uint64_t fun         = myparams->fun;
     uint64_t victim      = (uint64_t)myparams->victim;
-    uint64_t drain_index = myparams->idx;
-    uint64_t drain_mem   = (uint64_t)myparams->drain_mem;
     uint64_t reqlen      = myparams->reqlen;
     uint64_t is_huge     = myparams->is_huge;
-    uint64_t acc_index   = myparams->idx;
     uint64_t page        = myparams->page;
     uint64_t syn_addr    = (uint64_t)myparams->syn_addr;
     uint64_t offset      = (is_huge) ? LLC_PERIOD : SMALLPAGE_PERIOD;
+
     //drain
     if(fun == HPT_FUN_DRAIN) {
+      uint64_t drain_mem   = (uint64_t)myparams->drain_mem;
       drain = is_huge ?
-            (drain_mem + (victim & (LLC_PERIOD-1      )) + (drain_index % MAX_POOL_SIZE_HUGE )*LLC_PERIOD      ):
-            (drain_mem + (victim & (SMALLPAGE_PERIOD-1)) + (drain_index % MAX_POOL_SIZE_SMALL)*SMALLPAGE_PERIOD);
+            (drain_mem + (victim & (LLC_PERIOD-1      )) + (myparams->idx % MAX_POOL_SIZE_HUGE )*LLC_PERIOD      ):
+            (drain_mem + (victim & (SMALLPAGE_PERIOD-1)) + (myparams->idx % MAX_POOL_SIZE_SMALL)*SMALLPAGE_PERIOD);
       drain -= offset;
       for(i=0; i<reqlen; i++) {
         drain += offset;
         maccess((void*)drain);
       }
+      myparams->rv = 1;
     }
 
     //acc_syn
     if(fun == HPT_FUN_ACC_SYN) {
       memread((void*)syn_addr); 
-      //FENCE;
+      myparams->rv = 1;
     }
 
     //acc_asyn
     if(fun == HPT_FUN_ACC_ASYN) {
       prime = is_huge ?
-            (page + (victim & (LLC_PERIOD-1      )) + (acc_index % MAX_POOL_SIZE_HUGE )*LLC_PERIOD      ):
-            (page + (victim & (SMALLPAGE_PERIOD-1)) + (acc_index % MAX_POOL_SIZE_SMALL)*SMALLPAGE_PERIOD);
+            (page + (victim & (LLC_PERIOD-1      )) + (myparams->idx % MAX_POOL_SIZE_HUGE )*LLC_PERIOD      ):
+            (page + (victim & (SMALLPAGE_PERIOD-1)) + (myparams->idx % MAX_POOL_SIZE_SMALL)*SMALLPAGE_PERIOD);
       prime -= offset;
       for(i=0; i<reqlen; i++) {
         prime += offset;
         maccess((void*)prime);
       }
+      myparams->rv = 1;
     }
 
     //check
     if(fun == HPT_FUN_CHECK) {
-      time  = time_mread_nofence((void*)victim);
-      for(i =0; i<100; i++) time = time_mread_nofence((void*)victim);
-      FENCE;
-      time = time_mread_nofence((void*)victim);
-      time = time_mread_nofence((void*)victim);
-      while(time < llcmissTh) {
-        time = time_mread_nofence((void*)victim);
-        i++;
-      }
+      myparams->rv = 1 + check_mread((void*)victim);
     }
 
     if(fun == HPT_FUN_OCCUPY_WAY) {
@@ -130,20 +120,22 @@ void new_attacker_helper(int id) {
         }
         if(myparams->fun == HPT_FUN_ABORT) break;
       }
+      myparams->rv = 1;
     }
 
     if(fun == HPT_FUN_SCH_YIELD) {
+      myparams->rv = 1;
       sched_yield();
     }
+
     if(fun == HPT_FUN_EXIT){
       printf("new_attacker_helper%d exit\n", id);
       break;
     }
 
     myparams->fun = HPT_FUN_IDLE;
-    myparams->rv  = 1;
   }
+
   myparams->rv  = 1;
   exit(EXIT_SUCCESS);
-
 }

@@ -34,7 +34,7 @@ uint64_t *shared_mem;
 volatile uint64_t *synchronization;
 volatile uint64_t *synchronization_params;
 
-volatile helpThread_t *ht_params[HPTHREADS];
+volatile helpThread_t *ht_params;
 
 ////////////////////////////////////////////////////////////////////////////////
 // Function declarations
@@ -108,11 +108,8 @@ int main(int argc, char **argv)
   ASSERT(mem_map_shared(&shared_mem, SHARED_MEM_SIZE, usehugepage));
   ASSERT(var_map_shared(&synchronization));
   
-  for(i = 0; i<HPTHREADS; i++) {
-    ASSERT(var_map_shared_bacheblocks((volatile uint64_t **)(&ht_params[i]), 4));
-  }
-  for(i = 0; i<HPTHREADS; i++)
-    printf("ht_params[%d] %p\n", i, ht_params[i]);
+  ASSERT(var_map_shared_bacheblocks((volatile uint64_t **)(&ht_params), 4));
+  printf("ht_params %p\n", ht_params);
 
 
   *shared_mem = 1;
@@ -137,7 +134,7 @@ int main(int argc, char **argv)
   ASSERT(munmap(shared_mem, SHARED_MEM_SIZE));
   ASSERT(var_unmap(synchronization));
   for(i = 0; i<HPTHREADS; i++) {
-    ASSERT(var_unmap_shared_bacheblocks((volatile uint64_t *)(ht_params[i]), 4));
+    ASSERT(var_unmap_shared_bacheblocks((volatile uint64_t *)(ht_params), 4));
   }
 
   return 0;
