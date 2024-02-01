@@ -4,7 +4,7 @@ THIS_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 # Build directory
 ##################
 OBJDIR = obj
-CFLAGS = -I./$(OBJDIR) -I$(RISCV)/include -fPIC -O2
+CFLAGS = -I./$(OBJDIR) -I$(RISCV)/include -fPIC -O2 -static
 
 ####################
 # Files and folders

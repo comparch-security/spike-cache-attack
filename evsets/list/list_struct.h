@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stddef.h> // For size_t
+#include <stdint.h>
 
 typedef struct elem
 {

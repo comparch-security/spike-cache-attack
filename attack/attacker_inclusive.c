@@ -14,7 +14,7 @@
 // Consider this file only if the target machine has inclusive caches 
 // according to configuration.h
 #include "configuration.h"
-#include "../utils/colors.h"
+//#include "../utils/colors.h"
 #include "../utils/cache_utils.h"
 #include "../utils/memory_utils.h"
 #include "../utils/misc_utils.h"
@@ -25,11 +25,8 @@
 
 ////////////////////////////////////////////////////////////////////////////////
 // Memory Allocations
-extern volatile uint64_t *shared_mem;
-extern volatile uint64_t *synchronization;
-extern volatile uint64_t *synchronization_params;
-
-extern volatile helpThread_t* ht_params;
+extern uint64_t *shared_mem;
+extern helpThread_t* ht_params;
 
 static uint64_t lsfr = 0x01203891;
 
@@ -48,14 +45,14 @@ uint64_t random_fast() {
 ////////////////////////////////////////////////////////////////////////////////
 // Function declarations
 
-int  ctpp_ps_evset  (uint64_t *evset, char *victim, int nway uint64_t* page, int is_huge, int* evset_len);
+int ctpp_ps_evset(uint64_t *evset, int evset_max, char *victim, int nway, uint64_t* page, int is_huge, int* evset_len);
 void test_ctpp();
 
 ////////////////////////////////////////////////////////////////////////////////
 
 uint64_t *evict_mem;
 uint64_t *drain_mem;
-void new_attacker_helper();
+void attacker_helper();
 
 void attacker(int test_option) {
 
@@ -64,7 +61,6 @@ void attacker(int test_option) {
 
   if (fork() == 0) {
     set_core(HELPER_CORE, "Attacker Helper");
-    //new_attacker_helper(i);
     attacker_helper();
     return;
   }
@@ -72,21 +68,20 @@ void attacker(int test_option) {
   test_ctpp();
   ASSERT(munmap(evict_mem,  EVICT_LLC_SIZE));
 
-  // Shut Down,Control the victim core
-  *synchronization = -1;
-  sleep(1);
 }
 
 void test_ctpp(){
 
   #include "macros.h"
 
-  uint64_t succ = 0 ;
-
   #if PREMAP_PAGES == 1
-    ps_evset_premap(evict_mem);
+  for (int i=0; i<EVICT_LLC_SIZE/(8); i+=128)
+    evict_mem[i] = 0x1;
+  for (int i=0; i<EVICT_LLC_SIZE/(8); i+=128)
+    evict_mem[i] = 0x0;
   #endif
 
+  uint64_t succ = 0 ;
   for (uint64_t t=0; t<TEST_LEN; t++) {
 
     uint64_t target_index = (random_fast()%100000)*8;
@@ -94,14 +89,13 @@ void test_ctpp(){
 
     uint64_t  evsetArray[32];
 
-    *evsetList_ptr = NULL;
     int evset_len = 0 ;
-    int rv = ctpp_ps_evset(&evsetArray[0],
-                          (char*)target_addr,
-                          LLC_WAYS,
-                          evict_mem,
-                          0,
-                          &evset_len);
+    int rv = ctpp_ps_evset(&evsetArray[0], 32,
+                           (char*)target_addr,
+                           LLC_WAYS,
+                           evict_mem,
+                           0,
+                           &evset_len);
     if (rv) {
       succ++;
       char disp = 0;
@@ -113,7 +107,7 @@ void test_ctpp(){
 
 
       if(disp)
-        printf(GREEN"\tSuccess. traget %p Constucted succrate %ld/%ld=%3.2f%%\n"NC,
+        printf("\tSuccess. traget %p Constucted succrate %ld/%ld=%3.2f%%\n",
                target_addr, succ, t+1, (float)(100*succ)/(t+1));
     }
   }
@@ -168,6 +162,7 @@ int ctpp_ps_evset  (uint64_t *evset, int evset_max, char *victim, int nway, uint
     if(failed) continue; // failed at CT step
 
     int pp_round = 0;
+    uint64_t *evset_mask = NULL;
     do {
       // CTPP STEP2: remove hit
       if(evset_mask) free(evset_mask);
@@ -201,21 +196,21 @@ int ctpp_ps_evset  (uint64_t *evset, int evset_max, char *victim, int nway, uint
     if(*evset_len > evset_max) continue; // failed
 
     // collect evset
-    probe = (is_huge) ?
+    uint64_t ev_elem = (is_huge) ?
       ((uint64_t)page + ((uint64_t)victim & (LLC_PERIOD-1      )) + (prime_index_start % MAX_POOL_SIZE_HUGE )*LLC_PERIOD      ):
       ((uint64_t)page + ((uint64_t)victim & (SMALLPAGE_PERIOD-1)) + (prime_index_start % MAX_POOL_SIZE_SMALL)*SMALLPAGE_PERIOD);
-    for(int i=0, ei=0; i<prime_len; i++, probe+=offset) {
+    for(int i=0, ei=0; i<prime_len; i++, ev_elem+=offset) {
       if(evset_mask[i>>6] & (1ull << (i&0x3f)))
-        evset[ei++] = probe;
+        evset[ei++] = ev_elem;
     }
 
     // check evset
-    int co_count = 0;
-    set_congruent_target(victim);
+    int coloc_count = 0;
+    set_coloc_target(victim);
     for(int i=0; i<*evset_len; i++)
-      if(check_congrunet((uint8_t *)evset[i])) co_count++;
+      if(check_coloc((uint8_t *)evset[i])) coloc_count++;
     
-    if(co_count >= nway) return 1;
+    if(coloc_count >= nway) return 1;
   } while(++try < TRYMAX);
 
   return 0;

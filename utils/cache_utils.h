@@ -23,5 +23,5 @@ int      time_flush         (void *adrs);
 
 int      llc_hit             (void *p);
 int      check_mread         (void *p);
-void     set_congrunt_target (void *p);
-int      check_congrunt      (void *p);
+void     set_coloc_target    (void *p);
+int      check_coloc         (void *p);

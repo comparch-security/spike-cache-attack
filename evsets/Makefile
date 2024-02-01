@@ -5,17 +5,14 @@ UTILS_DIR := ../utils
 # Build directory
 ##################
 OBJDIR = obj
-CFLAGS = -I./$(OBJDIR) -fPIC -std=gnu99
+CFLAGS = -I./$(OBJDIR) -fPIC -std=gnu99 -static
 
 ####################
 # Files and folders
 ####################
 
-SRCS_PRIME = 	  		   \
-	ps_evset_noninc.c    \
-	ps_evset_inc.c       \
-	list/list_utils.c 	 \
-	list/list_traverse.c 
+SRCS_PRIME = 	  		 \
+	list/list_utils.c    \
 
 OBJS_PRIME = $(addprefix $(OBJDIR)/,$(patsubst %.c,%.o,$(SRCS_PRIME)))
 

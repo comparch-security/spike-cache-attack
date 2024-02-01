@@ -1,13 +1,8 @@
 #pragma once
 
 extern int usehugepage;
-extern int ctppp;
-extern int disableflushp2;
-extern int onecore;
-extern int ppp;
 extern int prime_pool_len;
 extern int drain_pool_len;
-extern int llc_miss_thres;
 
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -7,47 +7,12 @@
 #include "../utils/cache_utils.h"
 #include "../utils/misc_utils.h"
 #include "../list/list_struct.h"
-#include "../evsets/ps_evset.h"
+//#include "../evsets/ps_evset.h"
 
-extern volatile uint64_t *shared_mem;
-extern volatile uint64_t *synchronization;
-extern volatile uint64_t *synchronization2;
-extern volatile uint64_t *synchronization3;
-extern volatile uint64_t *synchronization_params;
-
-extern volatile helpThread_t* ht_params;
+extern uint64_t *shared_mem;
+extern helpThread_t* ht_params;
 
 void attacker_helper() {
-
-  //////////////////////////////////////////////////////////////////////////////
-  // Prepare variables for test cache access times
-
-  // Add a time limit to the helper process to prevent it from becoming a zombie process
-
-  while(1) {  
-
-    if (*synchronization == -1) {
-      break;
-    }
-    if (*synchronization == 99) {
-      // Implements the KILL_HELPER() macro
-      *synchronization = 0;
-      break;
-    }
-    if (*synchronization == 1) {
-      /* Implements the HELPER_READ_ACCESS() macro */
-      memread((void*)*synchronization_params); 
-      fence();
-      *synchronization = 0;
-    }
-  }
-  *synchronization = 0;
-  printf("attacker_helper exit\n");
-  exit(EXIT_SUCCESS);
-
-}
-
-void new_attacker_helper() {
 
   //////////////////////////////////////////////////////////////////////////////
   // Prepare variables for test cache access times
@@ -55,10 +20,9 @@ void new_attacker_helper() {
 
   volatile helpThread_t *myparams = ht_params;
 
-  uint64_t drain, prime, time;
+  uint64_t drain, prime;
 
-  // Add a time limit to the helper process to prevent it from becoming a zombie process
-  while(true) {
+  while(1) {
     while(myparams->fun == HPT_FUN_IDLE) sched_yield();
 
     uint64_t fun         = myparams->fun;
@@ -129,7 +93,7 @@ void new_attacker_helper() {
     }
 
     if(fun == HPT_FUN_EXIT){
-      printf("new_attacker_helper%d exit\n", id);
+      printf("attacker_helper() exit\n");
       break;
     }
 

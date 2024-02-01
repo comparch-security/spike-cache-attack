@@ -138,7 +138,7 @@ inline
 int
 llc_hit(void *p)
 {
-  uint64_t cmd = ((uint64_t)(p) & FLEXICAS_PFC_ADDR)|FLEXICAS_PFC/_QUERY;
+  uint64_t cmd = ((uint64_t)(p) & FLEXICAS_PFC_ADDR)|FLEXICAS_PFC_QUERY;
   write_csr(0x8F0, cmd);
   return read_csr(0x8F0);
 }
@@ -153,3 +153,19 @@ check_mread(void *p)
   return read_csr(0x8F0);
 }
 
+inline
+void
+set_coloc_target(void *p)
+{
+  uint64_t cmd = ((uint64_t)(p) & FLEXICAS_PFC_ADDR)|FLEXICAS_PFC_CONGRU_TARGET;
+  write_csr(0x8F0, cmd);
+}
+
+inline
+int
+check_coloc(void *p)
+{
+  uint64_t cmd = ((uint64_t)(p) & FLEXICAS_PFC_ADDR)|FLEXICAS_PFC_CONGRU_QUERY;
+  write_csr(0x8F0, cmd);
+  return read_csr(0x8F0);
+}
