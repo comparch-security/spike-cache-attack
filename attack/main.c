@@ -9,38 +9,45 @@
 #include "../utils/misc_utils.h"
 
 
-int usehugepage    = 0;
-int prime_pool_len = 8000;
-int drain_pool_len = 20000;
+int usehugepage    =    0;
+int prime_pool_len = 2000;
+int drain_pool_len = 4000;
 
 uint64_t *shared_mem;
 helpThread_t *ht_params;
 
 int main(int argc, char **argv)
 {
-  int option_index=0;
-  int help=0;
-  while (1) {
-    static struct option long_options[] = {
-      {"usehugepage"         ,   no_argument,            0, 0  },
-      {"prime_pool_len"      ,   required_argument,      0, 0  },
-      {"drain_pool_len"      ,   required_argument,      0, 0  },
-      {"help"                ,   no_argument,            0, 0  },
-      {0                     ,   0          ,            0, 0  }};
+  static struct option long_options[] = {
+    {"huge"        , no_argument       , 0  , 'u' },
+    {"prime-pool"  , required_argument , 0  , 'p' },
+    {"drain-pool"  , required_argument , 0  , 'd' },
+    {"help"        , no_argument       , 0  , 'h' },
+    {0             , 0                 , 0  , 0   }};
 
-    if (getopt_long(argc, argv, "", long_options, &option_index) == -1)
+  int c;
+  while ((c = getopt_long(argc, argv, "up:d:h", long_options, NULL)) != -1) {
+    switch(c) {
+    case 'u': usehugepage = 1; break;
+    case 'p': prime_pool_len = atoi(optarg); break;
+    case 'd': drain_pool_len = atoi(optarg); break;
+    case 'h':
+      printf("example:\n");
+      printf("  %s --huge --prime-pool 7000 --drain-pool 10000\n", argv[0]);
+      exit(0);
+    case ':':   /* missing option argument */
+      printf("%s: option `-%c' requires an argument\n", argv[0], optopt);
       break;
+    case '?':
+    default:    /* invalid option */
+      printf("%s: option `-%c' is invalid: ignored\n", argv[0], optopt);
+    }
+  }
 
-    if(option_index ==   5)   usehugepage      = 1;
-    if(option_index ==  10)   prime_pool_len   = atoi(optarg);
-    if(option_index ==  11)   drain_pool_len   = atoi(optarg);
-    if(option_index ==  13)   help             = 1;
-  }
-  if(help) {
-    printf("example:\n");
-    printf("  ./app --usehugepage --prime_pool_len=7000 --drain_pool_len=10000\n");
-    exit(0);
-  }
+  printf("running with option:");
+  if(usehugepage) printf(" --huge");
+  printf(" --prime-pool=%d --drain-pool=%d\n", prime_pool_len, drain_pool_len);
+  printf(" MAX_POOL_SIZE=%d\n", MAX_POOL_SIZE);
 
   //////////////////////////////////////////////////////////////////////////////
   // Memory allocations
@@ -50,7 +57,7 @@ int main(int argc, char **argv)
   mem_map_shared(&shared_mem, SHARED_MEM_SIZE, usehugepage);
   mem_map_shared((uint64_t **)&ht_params, sizeof(helpThread_t), 0);
   ht_params->fun = HPT_FUN_IDLE;
-  ht_params->rv = 0;
+  ht_params->rv = 1;
 
   *shared_mem = 1;
 
@@ -59,8 +66,9 @@ int main(int argc, char **argv)
     attacker_helper();
     return 0;
   }
+
   set_core(0, "Attacker"); 
-  attacker(option_index);
+  attacker();
 
 
   //////////////////////////////////////////////////////////////////////////////

@@ -7,13 +7,18 @@
 void attacker_helper() {
 
   while(1) {
-    while(ht_params->fun == HPT_FUN_IDLE) sched_yield();
+    while(ht_params->fun == HPT_FUN_IDLE) {
+      printf("helper rv = %ld\n", ht_params->rv);
+      sched_yield();
+    }
 
     uint64_t fun         = ht_params->fun;
     uint64_t page        = ht_params->page;
     uint64_t addr        = ht_params->addr;
     uint64_t idx         = ht_params->idx;
     uint64_t len         = ht_params->len;
+
+    printf("helper get an op %ld.\n", fun);
 
     //acc_syn
     if(fun == HPT_FUN_ACC_SYN) {

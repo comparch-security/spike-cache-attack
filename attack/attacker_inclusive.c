@@ -23,8 +23,7 @@ void test_ctpp();
 
 ////////////////////////////////////////////////////////////////////////////////
 
-void attacker(int test_option) {
-
+void attacker() {
   test_ctpp();
 }
 
@@ -33,11 +32,16 @@ void test_ctpp(){
   uint64_t *drain_mem;
   mem_map_shared(&evict_mem, EVICT_LLC_SIZE, usehugepage);
   mem_map_shared(&drain_mem, EVICT_LLC_SIZE, usehugepage);
+
+  printf("both evict and drain are mapped.\n");
+
   // premap
+  /*
   for (int i=0; i<EVICT_LLC_SIZE/8; i+=128)
     evict_mem[i] = 0x1;
   for (int i=0; i<EVICT_LLC_SIZE/8; i+=128)
     evict_mem[i] = 0x0;
+  */
 
   uint64_t succ = 0 ;
   for (uint64_t t=0; t<TEST_LEN; t++) {
@@ -78,7 +82,14 @@ int ctpp(uint64_t *evset, int evset_max, uint64_t victim, int nway, uint64_t pag
   SEQ_ACCESS(drain, victim, drain_index, drain_pool_len);
   drain_index += drain_pool_len;
 
+  printf("cache drained.\n");
+
   HELPER_READ_ACCESS(victim);
+
+  printf("victim accessed.\n");
+
+  KILL_HELPER();
+  exit(0);
 
   // CTPP STEP 1: prime until evict the victim
   int prime_index_start = prime_index, prime_len = 0, failed = 0;

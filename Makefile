@@ -30,7 +30,7 @@ $(UTILS_OBJS) : %o:%c $(UTILS_HEADERS)
 $(ATTACK_OBJS) : %o:%c $(ATTACK_HEADERS) $(UTILS_HEADERS)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-ctpp_test: attack/main.c $(ATTACK_OBJS) $(UTILS_OBJS)
+ctpp-test: attack/main.c $(ATTACK_OBJS) $(UTILS_OBJS)
 	$(CC) $(CFLAGS) $^ -o $@
 
 clean:

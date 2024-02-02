@@ -21,8 +21,8 @@ extern int drain_pool_len;
 // attack definitions
 
 #include "../utils/memory_sizes.h"    // For KB, MB, GB
-#define EVICT_LLC_SIZE        (128*MB) // especially the 28-slice machines need larger pool
-#define SHARED_MEM_SIZE       (4*MB)
+#define EVICT_LLC_SIZE        (64*MB) // especially the 28-slice machines need larger pool
+#define SHARED_MEM_SIZE       (8*MB)
 #define MAX_POOL_SIZE_HUGE  (EVICT_LLC_SIZE/LLC_PERIOD)
 #define MAX_POOL_SIZE_SMALL (EVICT_LLC_SIZE/SMALLPAGE_PERIOD)
 #define MAX_POOL_SIZE       (usehugepage && MAX_POOL_SIZE_HUGE > MAX_POOL_SIZE_SMALL ? \
@@ -80,7 +80,7 @@ typedef struct helpThread
 extern helpThread_t* ht_params;
 
 void attacker_helper();
-void attacker(int test_option);
+void attacker();
 
 #define HELPER_READ_ACCESS(x)   ({               \
   while(ht_params->rv == 0) sched_yield();       \
