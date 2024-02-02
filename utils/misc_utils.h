@@ -12,3 +12,6 @@ int comp(const void * a, const void * b);
 int comp_double(const void * a, const void * b);
 
 int median(int *array, int len);
+
+void init_seed(uint64_t seed);
+uint64_t random_fast();

@@ -21,7 +21,6 @@ SRCS_APP = 	main.c \
 			attacker_inclusive.c \
 			attacker_helper.c
 OBJS_APP = 	$(addprefix $(OBJDIR)/,$(patsubst %.c,%.o,$(SRCS_APP)))
-OBJS_EVS = 	$(addprefix $(EVSET_DIR)/$(OBJDIR)/,$(notdir $(patsubst %.c,%.o,$(shell find $(EVSET_DIR)/*.c $(EVSET_DIR)/list/*.c))))
 OBJS_UTL = 	$(addprefix $(UTILS_DIR)/$(OBJDIR)/,$(notdir $(patsubst %.c,%.o,$(shell find $(UTILS_DIR)/*.c))))
 
 ##########
@@ -35,9 +34,6 @@ app: $(OBJS_APP) $(OBJS_UTL)
 
 utils:
 	CC=$(CC) $(MAKE) -C $(UTILS_DIR) 
-
-evsets:
-	CC=$(CC) $(MAKE) -C $(EVSET_DIR) CONFIG_FILE=$(THIS_DIR)/configuration.h
 
 $(OBJDIR)/%.o: %.c | objdir
 	$(CC) $(CFLAGS) -c $< -o $@

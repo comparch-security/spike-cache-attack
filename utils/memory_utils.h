@@ -33,11 +33,6 @@ int mem_map_private(uint64_t** addr, int len, int withhuge);
 int mem_map_shared (uint64_t** addr, uint64_t len, int withhuge);
 int mem_unmap      (uint64_t*  addr, int len);
 
-int var_map_shared (volatile uint64_t** addr);
-int var_map_shared_bacheblocks(volatile uint64_t** addr, int blks);
-int var_unmap_shared_bacheblocks(volatile uint64_t* addr, int blks);
-int var_unmap      (volatile uint64_t*  addr);
-
 ////////////////////////////////////////////////////////////////////////////////
 // DEFINITIONS FOR EVICTION MEMORIES
 
