@@ -8,7 +8,6 @@ void attacker_helper() {
 
   while(1) {
     while(ht_params->fun == HPT_FUN_IDLE) {
-      printf("helper rv = %ld\n", ht_params->rv);
       sched_yield();
     }
 
@@ -17,8 +16,6 @@ void attacker_helper() {
     uint64_t addr        = ht_params->addr;
     uint64_t idx         = ht_params->idx;
     uint64_t len         = ht_params->len;
-
-    printf("helper get an op %ld.\n", fun);
 
     //acc_syn
     if(fun == HPT_FUN_ACC_SYN) {
@@ -35,6 +32,17 @@ void attacker_helper() {
     //check
     if(fun == HPT_FUN_CHECK) {
       ht_params->rv = 1 + CHECK_ACCESS(addr);
+    }
+
+    //set coloc target
+    if(fun == HPT_FUN_SET_COLOC) {
+      SET_COLOC(addr);
+      ht_params->rv = 1;
+    }
+
+    //check
+    if(fun == HPT_FUN_CHECK_COLOC) {
+      ht_params->rv = 1 + CHECK_COLOC(addr);
     }
 
     if(fun == HPT_FUN_OCCUPY_WAY) {

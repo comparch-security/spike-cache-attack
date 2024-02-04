@@ -65,7 +65,6 @@ void init_seed(uint64_t seed) {
 }
 
 uint64_t random_fast() {
-  return lsfr++;
   uint64_t b63 = 0x1 & (lsfr >> 62);
   uint64_t b62 = 0x1 & (lsfr >> 61);
   lsfr = ((lsfr << 2) >> 1) | (b63 ^ b62);

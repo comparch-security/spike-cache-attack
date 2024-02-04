@@ -66,6 +66,8 @@ extern uint64_t *shared_mem;
 #define HPT_FUN_OCCUPY_WAY  5
 #define HPT_FUN_ABORT       6
 #define HPT_FUN_EXIT        7
+#define HPT_FUN_SET_COLOC   8
+#define HPT_FUN_CHECK_COLOC 9
 
 typedef struct helpThread
 {
@@ -100,6 +102,21 @@ void attacker();
   ht_params->rv           = 0;                   \
   ht_params->addr         = (uint64_t)(x);       \
   ht_params->fun          = HPT_FUN_CHECK;       \
+  while(ht_params->rv == 0) sched_yield();       \
+  ht_params->rv - 1;                             })
+
+#define HELPER_SET_COLOC(x) ({                   \
+  while(ht_params->rv == 0) sched_yield();       \
+  ht_params->rv           = 0;                   \
+  ht_params->addr         = (uint64_t)(x);       \
+  ht_params->fun          = HPT_FUN_SET_COLOC;   \
+  while(ht_params->rv == 0) sched_yield();       })
+
+#define HELPER_QUERY_COLOC(x) ({                 \
+  while(ht_params->rv == 0) sched_yield();       \
+  ht_params->rv           = 0;                   \
+  ht_params->addr         = (uint64_t)(x);       \
+  ht_params->fun          = HPT_FUN_CHECK_COLOC; \
   while(ht_params->rv == 0) sched_yield();       \
   ht_params->rv - 1;                             })
 

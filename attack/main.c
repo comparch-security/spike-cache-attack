@@ -10,8 +10,8 @@
 
 
 int usehugepage    =    0;
-int prime_pool_len = 2000;
-int drain_pool_len = 4000;
+int prime_pool_len = 1200;
+int drain_pool_len = 1600;
 
 uint64_t *shared_mem;
 helpThread_t *ht_params;
@@ -47,7 +47,7 @@ int main(int argc, char **argv)
   printf("running with option:");
   if(usehugepage) printf(" --huge");
   printf(" --prime-pool=%d --drain-pool=%d\n", prime_pool_len, drain_pool_len);
-  printf(" MAX_POOL_SIZE=%d\n", MAX_POOL_SIZE);
+  printf("  MAX_POOL_SIZE=%d SEQ_OFFSET=%d\n", MAX_POOL_SIZE, SEQ_OFFSET);
 
   //////////////////////////////////////////////////////////////////////////////
   // Memory allocations
@@ -55,11 +55,12 @@ int main(int argc, char **argv)
   // `shared_mem` is for addresses that the attacker and victim will share.
 
   mem_map_shared(&shared_mem, SHARED_MEM_SIZE, usehugepage);
+  //printf("shared mem: %lx -- %lx size=%x\n", (uint64_t)(shared_mem), (uint64_t)(shared_mem)+SHARED_MEM_SIZE, SHARED_MEM_SIZE);
+  *shared_mem = 1;
+
   mem_map_shared((uint64_t **)&ht_params, sizeof(helpThread_t), 0);
   ht_params->fun = HPT_FUN_IDLE;
   ht_params->rv = 1;
-
-  *shared_mem = 1;
 
   if (fork() == 0) {
     set_core(1, "Attacker Helper");
