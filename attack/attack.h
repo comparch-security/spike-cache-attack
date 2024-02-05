@@ -22,8 +22,8 @@ extern int drain_pool_len;
 // attack definitions
 
 #include "../utils/memory_sizes.h"    // For KB, MB, GB
-#define EVICT_LLC_SIZE        (64*MB) // especially the 28-slice machines need larger pool
-#define SHARED_MEM_SIZE       (8*MB)
+#define EVICT_LLC_SIZE      (64*MB) // especially the 28-slice machines need larger pool
+#define SHARED_MEM_SIZE     (2*MB)
 #define MAX_POOL_SIZE_HUGE  (EVICT_LLC_SIZE/LLC_PERIOD)
 #define MAX_POOL_SIZE_SMALL (EVICT_LLC_SIZE/SMALLPAGE_PERIOD)
 #define MAX_POOL_SIZE       (usehugepage && MAX_POOL_SIZE_HUGE > MAX_POOL_SIZE_SMALL ? \

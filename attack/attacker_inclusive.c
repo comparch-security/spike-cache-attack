@@ -62,7 +62,7 @@ void test_ctpp(){
 
   KILL_HELPER();
   mem_unmap(evict_mem,  EVICT_LLC_SIZE);
-  mem_unmap(evict_mem,  EVICT_LLC_SIZE);
+  mem_unmap(drain_mem,  EVICT_LLC_SIZE);
 }
 
 int ctpp(uint64_t *evset, int evset_max, uint64_t victim, int nway, uint64_t page, uint64_t drain, int* evset_len){
