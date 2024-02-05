@@ -21,7 +21,6 @@
 // Function declarations
 
 int ctpp(uint64_t *evset, int evset_max, uint64_t victim, int nway, uint64_t page, uint64_t drain, int* evset_len);
-void test_ctpp();
 
 ////////////////////////////////////////////////////////////////////////////////
 

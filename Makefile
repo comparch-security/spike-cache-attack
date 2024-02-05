@@ -18,9 +18,9 @@ UTILS_HEADERS  = $(wildcard utils/*.hpp)
 ATTACK_HEADERS = $(wildcard attack/*.hpp)
 
 UTILS_OBJS     = utils/cache_utils.o utils/memory_utils.o utils/misc_utils.o
-ATTACK_OBJS    = attack/attacker_helper.o attack/ctpp.o
+ATTACK_OBJS    = attack/attacker_helper.o attack/ctpp.o attack/ct.o 
 
-all: ctpp-test
+all: ctpp-test ct-test
 
 .PONY: all
 
@@ -33,8 +33,11 @@ $(ATTACK_OBJS) : %o:%c $(ATTACK_HEADERS) $(UTILS_HEADERS)
 ctpp-test: attack/main.c attack/attacker_helper.o attack/ctpp.o $(UTILS_OBJS)
 	$(CC) $(CFLAGS) $^ -o $@
 
+ct-test: attack/main.c attack/attacker_helper.o attack/ct.o $(UTILS_OBJS)
+	$(CC) $(CFLAGS) $^ -o $@
+
 clean:
 	-rm $(UTILS_OBJS) $(CACHE_OBJS)
-	-rm ctpp-test
+	-rm ctpp-test ct-test
 
 .PHONY: clean
