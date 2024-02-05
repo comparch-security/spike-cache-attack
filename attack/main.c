@@ -11,7 +11,7 @@
 
 int usehugepage    =    0;
 int prime_pool_len = 1200;
-int drain_pool_len = 1600;
+int drain_pool_len =  800;
 
 uint64_t *shared_mem;
 helpThread_t *ht_params;

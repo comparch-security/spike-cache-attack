@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stdint.h>
+#include <sched.h>
 #include "../utils/cache_utils.h"
 
 // glibale variables
@@ -28,7 +29,7 @@ extern int drain_pool_len;
 #define MAX_POOL_SIZE       (usehugepage && MAX_POOL_SIZE_HUGE > MAX_POOL_SIZE_SMALL ? \
                              MAX_POOL_SIZE_HUGE : MAX_POOL_SIZE_SMALL)
 
-#define TEST_LEN  1000
+#define TEST_LEN  100
 
 extern uint64_t *shared_mem;
 
@@ -53,10 +54,10 @@ extern uint64_t *shared_mem;
 #define SEQ_OFFSET                       \
   (usehugepage ? LLC_PERIOD : SMALLPAGE_PERIOD)
 
-#define SEQ_ACCESS(page, addr, idx, len)           \
-  uint64_t acc = CAL_SATRT_ADDR(page, addr, idx);  \
-  for(int i=0; i<len; i++, acc+=SEQ_OFFSET)        \
-    READ_ACCESS(acc)                               \
+#define SEQ_ACCESS(page, addr, idx, len) {           \
+    uint64_t acc = CAL_SATRT_ADDR(page, addr, idx);  \
+    for(int i=0; i<len; i++, acc+=SEQ_OFFSET)        \
+      READ_ACCESS(acc);                              }
 
 #define HPT_FUN_IDLE        0
 #define HPT_FUN_ACC_SYN     1

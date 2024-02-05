@@ -15,6 +15,8 @@
 #include "../utils/memory_utils.h"
 #include "../utils/misc_utils.h"
 
+//#define DPRINT
+
 ////////////////////////////////////////////////////////////////////////////////
 // Function declarations
 
@@ -33,20 +35,12 @@ void test_ctpp(){
   mem_map_shared(&evict_mem, EVICT_LLC_SIZE, usehugepage);
   mem_map_shared(&drain_mem, EVICT_LLC_SIZE, usehugepage);
 
-  // premap
-  /*
-  for (int i=0; i<EVICT_LLC_SIZE/8; i+=128)
-    evict_mem[i] = 0x1;
-  for (int i=0; i<EVICT_LLC_SIZE/8; i+=128)
-    evict_mem[i] = 0x0;
-  */
-
   uint64_t succ = 0 ;
   uint64_t target_index, target_addr;
   uint64_t evset[32];
   int evset_len;
   for (uint64_t t=0; t<TEST_LEN; t++) {
-    target_index = ((random_fast() % SHARED_MEM_SIZE) >> 3) & (~0x7ull);
+    target_index = ((rand() % SHARED_MEM_SIZE) >> 3) & (~0x7ull);
     target_addr = (uint64_t)(shared_mem + target_index);
     evset_len = 0;
 
@@ -61,7 +55,7 @@ void test_ctpp(){
       else if(10000   <= succ                  ) { if(succ % 10000 == 0) disp = 1; }
 
       if(disp)
-        printf("Success. traget 0x%lx (%lx) succ-rate %ld/%ld=%3.2f%%\n", target_addr, target_index, succ, t+1, (float)(100*succ)/(t+1));
+        printf("Success. traget 0x%lx succ-rate %ld/%ld=%3.2f%%\n", target_addr, succ, t+1, (float)(100*succ)/(t+1));
     }
   }
   printf(" finish succ-rate %ld/%ld=%f%%\n", succ, (uint64_t)TEST_LEN, (float)(100*succ)/TEST_LEN);
@@ -76,8 +70,6 @@ int ctpp(uint64_t *evset, int evset_max, uint64_t victim, int nway, uint64_t pag
   static uint64_t prime_index  = 0;
   static uint64_t drain_index  = 0;
 
-  printf("ctpp targeting %lx.\n", victim);
-
   if(prime_index + prime_pool_len >= MAX_POOL_SIZE) prime_index = 0;
   if(drain_index + drain_pool_len >= MAX_POOL_SIZE) drain_index = 0;
 
@@ -85,15 +77,24 @@ int ctpp(uint64_t *evset, int evset_max, uint64_t victim, int nway, uint64_t pag
   SEQ_ACCESS(drain, victim, drain_index, drain_pool_len);
   drain_index += drain_pool_len;
 
-  HELPER_READ_ACCESS(victim);
+  // preload TLB for prime pool
+  SEQ_ACCESS(page, victim, prime_index, prime_pool_len);
+  drain_index += drain_pool_len;
 
+  HELPER_READ_ACCESS(victim);
 
   // CTPP STEP 1: prime until evict the victim
   int prime_index_start = prime_index, prime_len = 0, failed = 0, step_size = 20;
+#ifdef DPRINT
+  *evset_len = 0;
+#endif
   while(1) {
     SEQ_ACCESS(page, victim, prime_index, step_size);
     prime_index += step_size;
     prime_len   += step_size;
+#ifdef DPRINT
+    *evset_len  += step_size;
+#endif
 
     fence();
     if(!HELPER_CHECK(victim)) {
@@ -102,45 +103,73 @@ int ctpp(uint64_t *evset, int evset_max, uint64_t victim, int nway, uint64_t pag
     if(prime_len > prime_pool_len - step_size + 1) { failed = 1; break; }
   }
 
-  printf("CTPP step CT finished.\n");
+#ifdef DPRINT
+  printf("CT %d", *evset_len);
+#endif
   if(failed) return 0;
 
   int pp_round = 0;
   uint64_t *evset_mask = NULL;
-  do {
-    // CTPP STEP2: remove hit
-    if(evset_mask) free(evset_mask);
-    evset_mask  = (uint64_t*)calloc(prime_pool_len/64, sizeof(uint64_t));
+  if(evset_mask) free(evset_mask);
+  evset_mask  = (uint64_t*)calloc(prime_pool_len/64, sizeof(uint64_t));
 
+  do {
+    HELPER_READ_ACCESS(victim);
+    
+    // CTPP STEP2: remove hit
+#ifdef DPRINT
+    *evset_len = 0;
     int probe_coloc_count = 0;
+    HELPER_SET_COLOC(victim);
+#endif
     uint64_t probe = CAL_SATRT_ADDR(page, victim, prime_index_start);
     for(int i=0; i<prime_len; i++, probe+=SEQ_OFFSET) {
-      if(!CHECK_ACCESS(probe)) {
-        HELPER_SET_COLOC(victim);
-        probe_coloc_count += CHECK_COLOC(probe);
-        evset_mask[i>>6] |= (1ull << (i&0x3f));
+      if(pp_round == 0 || (evset_mask[i>>6] & (1ull << (i&0x3f)))) {
+        int hit = CHECK_ACCESS(probe);
+#ifdef DPRINT
+        if(!hit) {
+          *evset_len  += 1;
+          probe_coloc_count += CHECK_COLOC(probe);
+        }
+#endif
+        if(!hit && pp_round == 0) evset_mask[i>>6] |= (1ull << (i&0x3f));
+        if(hit && pp_round != 0)  evset_mask[i>>6] &= ~(1ull << (i&0x3f));
       }
     }
-    printf("CTPP step Probe finished  (where %d are indeed coloc).\n", probe_coloc_count);
+#ifdef DPRINT
+    printf(" Po %d (%d)", *evset_len, probe_coloc_count);
+#endif
 
     // CTPP STEP3: remove miss
-    int prune_coloc_count = 0;
     probe = CAL_SATRT_ADDR(page, victim, prime_index_start);
+    *evset_len = 0;
+#ifdef DPRINT
+    int prune_coloc_count = 0;
+    HELPER_SET_COLOC(victim);
+#endif
     *evset_len = 0;
     for(int i=0; i<prime_len; i++, probe+=SEQ_OFFSET) {
       if(evset_mask[i>>6] & (1ull << (i&0x3f))) {
         if(!CHECK_ACCESS(probe))
           evset_mask[i>>6] &= ~(1ull << (i&0x3f));
         else {
+#ifdef DPRINT
           HELPER_SET_COLOC(victim);
           prune_coloc_count += CHECK_COLOC(probe);
+#endif
           *evset_len += 1;
         }
       }
     }
-    printf("CTPP step Prune finished with evset size %d (where %d are indeed coloc).\n", *evset_len, prune_coloc_count);
-  } while(++pp_round < 2 && *evset_len > evset_max);
+#ifdef DPRINT
+    printf(" Pu %d (%d)", *evset_len, prune_coloc_count);
+#endif
+  } while(++pp_round < 4 && *evset_len > evset_max);
 
+
+#ifdef DPRINT
+  printf("\n");
+#endif
 
   if(*evset_len > evset_max) return 0;
 
@@ -151,16 +180,15 @@ int ctpp(uint64_t *evset, int evset_max, uint64_t victim, int nway, uint64_t pag
       evset[ei++] = ev_elem;
   }
 
-  printf("evset element collected.\n");
-
   // check evset
   int coloc_count = 0;
   HELPER_SET_COLOC(victim);
-  printf("after set coloc().\n");
   for(int i=0; i<*evset_len; i++)
     if(CHECK_COLOC(evset[i])) coloc_count++;
     
-  printf("containing %d coloc addresses.\n", coloc_count);
+#ifdef DPRINT
+  printf("evset contains %d coloc addresses.\n", coloc_count);
+#endif
   if(coloc_count >= nway) return 1;
 
   return 0;
