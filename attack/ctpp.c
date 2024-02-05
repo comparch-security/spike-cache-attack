@@ -25,11 +25,7 @@ void test_ctpp();
 
 ////////////////////////////////////////////////////////////////////////////////
 
-void attacker() {
-  test_ctpp();
-}
-
-void test_ctpp(){
+void attacker(){
   uint64_t *evict_mem;
   uint64_t *drain_mem;
   mem_map_shared(&evict_mem, EVICT_LLC_SIZE, usehugepage);
