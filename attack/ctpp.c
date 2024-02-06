@@ -50,7 +50,7 @@ void attacker(){
       else if(10000   <= succ                  ) { if(succ % 10000 == 0) disp = 1; }
 
       if(disp)
-        printf("Success. traget 0x%lx succ-rate %ld/%ld=%3.2f%%\n", target_addr, succ, t+1, (float)(100*succ)/(t+1));
+        printf("Success. traget 0x%lx evset len %d succ-rate %ld/%ld=%3.2f%%\n", target_addr, evset_len, succ, t+1, (float)(100*succ)/(t+1));
     }
   }
   printf(" finish succ-rate %ld/%ld=%f%%\n", succ, (uint64_t)TEST_LEN, (float)(100*succ)/TEST_LEN);

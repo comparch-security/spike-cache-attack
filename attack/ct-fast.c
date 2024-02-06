@@ -20,7 +20,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 // Function declarations
 
-int ct(uint64_t *evset, int evset_max, uint64_t victim, int nway, uint64_t page, int* evset_len);
+int ct_fast(uint64_t *evset, int evset_max, uint64_t victim, int nway, uint64_t page, int* evset_len);
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -42,7 +42,7 @@ void attacker(){
     target_addr = (uint64_t)(shared_mem + target_index);
     evset_len = 0;
 
-    if(ct(evset, 32, target_addr, LLC_WAYS, (uint64_t)evict_mem, &evset_len)) {
+    if(ct_fast(evset, 32, target_addr, LLC_WAYS, (uint64_t)evict_mem, &evset_len)) {
       succ++;
       char disp = 0;
       if(succ == 1) disp = 1;
@@ -62,7 +62,7 @@ void attacker(){
   mem_unmap(evict_mem,  EVICT_LLC_SIZE);
 }
 
-int ct(uint64_t *evset, int evset_max, uint64_t victim, int nway, uint64_t page, int* evset_len){
+int ct_fast(uint64_t *evset, int evset_max, uint64_t victim, int nway, uint64_t page, int* evset_len){
 
   static uint64_t prime_index  = 0;
   *evset_len = 0;
@@ -74,47 +74,53 @@ int ct(uint64_t *evset, int evset_max, uint64_t victim, int nway, uint64_t page,
   uint64_t addr = addr_start;
 
   do {
-    HELPER_READ_ACCESS(victim);
+    do {
+      HELPER_READ_ACCESS(victim);
 
-    while(1) {
-      if(prime_index >= MAX_POOL_SIZE) prime_index = 0;
-      else                             prime_index++;
+      // cache back
+      for(int i=0; i<*evset_len; i++)
+        READ_ACCESS(evset[i]);
+
+      while(1) {
+        if(prime_index >= MAX_POOL_SIZE) prime_index = 0;
+        else                             prime_index++;
 #ifdef DPRINT
-      prime_len++;
-      if((prime_len % 1024) == 0) {
-        printf(".");
-        fflush(stdout);
+        prime_len++;
+        if((prime_len % 1024) == 0) {
+          printf(".");
+          fflush(stdout);
+        }
+#endif
+
+        // test
+        READ_ACCESS(addr);
+        fence();
+        if(!HELPER_CHECK(victim)) {
+          evset[*evset_len] = addr;
+          *evset_len += 1;
+#ifdef DPRINT
+          printf("(%d)\n", prime_len);
+#endif
+          break;
+        }
+
+        // failed
+        if(prime_index == 0) addr = addr_start;
+        else                 addr += SEQ_OFFSET;
       }
-#endif
+    } while(*evset_len < nway);
 
-      // test
-      READ_ACCESS(addr);
-      fence();
-      if(!HELPER_CHECK(victim)) {
-        evset[*evset_len] = addr;
-        *evset_len += 1;
-#ifdef DPRINT
-        printf("(%d)\n", prime_len);
-#endif
-        break;
-      }
-
-      // failed
-      if(prime_index == 0) addr = addr_start;
-      else                 addr += SEQ_OFFSET;
-    }
-  } while(*evset_len < nway);
-
-  // check evset
-  int coloc_count = 0;
-  HELPER_SET_COLOC(victim);
-  for(int i=0; i<*evset_len; i++)
-    if(CHECK_COLOC(evset[i])) coloc_count++;
+    // check evset
+    int coloc_count = 0;
+    HELPER_SET_COLOC(victim);
+    for(int i=0; i<*evset_len; i++)
+      if(CHECK_COLOC(evset[i])) coloc_count++;
 
 #ifdef DPRINT
-  printf("evset contains %d coloc addresses.\n", coloc_count);
+    printf("evset contains %d coloc addresses.\n", coloc_count);
 #endif
-  if(coloc_count >= nway) return 1;
+    if(coloc_count >= nway) return 1;
+  } while (*evset_len < evset_max);
 
   return 0;
 }
