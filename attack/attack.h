@@ -35,18 +35,11 @@ extern uint64_t *shared_mem;
 
 // attack helper
 
-#define FLUSH(x)         ({ flush((void*)x);       })
-#define READ_ACCESS(x)   ({ maccess((void*)x);     })
-#define WRITE_ACCESS(x)  ({ memwrite((void*)x);    })
-#define CHECK_ACCESS(x)  ({ check_mread((void*)x); })
-#define SET_COLOC(x)     ({ set_coloc_target((void*)x); })
-#define CHECK_COLOC(x)   ({ check_coloc((void*)x); })
-
 #define START_ADDR_HUGE(page, addr, idx)  \
-  (page + (addr&(LLC_PERIOD-1)) + (idx % MAX_POOL_SIZE_HUGE)*LLC_PERIOD)
+  ((uint64_t)(page) + (addr&(LLC_PERIOD-1)) + (idx % MAX_POOL_SIZE_HUGE)*LLC_PERIOD)
 
 #define START_ADDR_SMALL(page, addr, idx)                               \
-  (page + (addr&(SMALLPAGE_PERIOD-1)) + (idx % MAX_POOL_SIZE_SMALL)*SMALLPAGE_PERIOD)
+  ((uint64_t)(page) + (addr&(SMALLPAGE_PERIOD-1)) + (idx % MAX_POOL_SIZE_SMALL)*SMALLPAGE_PERIOD)
 
 #define CAL_SATRT_ADDR(page, addr, idx)                                 \
   (usehugepage ? START_ADDR_HUGE(page, addr, idx) : START_ADDR_SMALL(page, addr, idx))
@@ -54,10 +47,13 @@ extern uint64_t *shared_mem;
 #define SEQ_OFFSET                       \
   (usehugepage ? LLC_PERIOD : SMALLPAGE_PERIOD)
 
-#define SEQ_ACCESS(page, addr, idx, len) {           \
-    uint64_t acc = CAL_SATRT_ADDR(page, addr, idx);  \
-    for(int i=0; i<len; i++, acc+=SEQ_OFFSET)        \
-      READ_ACCESS(acc);                              }
+#define SEQ_ACCESS_W_OFF(page, addr, idx, len, offset) { \
+    uint64_t acc = CAL_SATRT_ADDR(page, addr, idx);      \
+    for(int i=0; i<len; i++, acc+=offset)                \
+      READ_ACCESS(acc);                                  }
+
+#define SEQ_ACCESS(page, addr, idx, len) \
+  SEQ_ACCESS_W_OFF(page, addr, idx, len, SEQ_OFFSET)
 
 #define HPT_FUN_IDLE        0
 #define HPT_FUN_ACC_SYN     1

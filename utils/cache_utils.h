@@ -1,27 +1,25 @@
 #pragma once
 
-void     fence              ();
-void     clflush            (void *p);
-void     clflush_f          (void *p);
+#include <stdint.h>
 
-//uint64_t rdtsc              (void);
-//uint64_t rdtscp64           (void);
+#define read_csr(reg) ({ uint64_t tmp; asm volatile ("csrr %0, " #reg : "=r"(tmp)); tmp; })
+#define write_csr(reg, val) ({ asm volatile ("csrw " #reg ", %0" :: "r"(val)); })
 
-void     maccess            (void *p);
-void     mwrite             (void *v);
-int      mread              (void *v);
-int      time_mread         (void *adrs);
-int      time_mread_nofence (void *adrs);
-int      time_mread_nofence2 (void *adrs0, void *adrs1);
-int      time_mread_nofence3 (void *adrs0, void *adrs1, void *adrs2);
-int      time_flush         (void *adrs);
+#define READ_ACCESS(p) ({ asm volatile ("ld t0, (%0);" : : "r" (p) : "t0"); })
+#define WRITE_ACCESS(p)  ({ fence(); asm volatile ("li t0, 10; sd t0, (%0);" : : "r"(v) : "t0"); fence(); })
+#define mread(p)   ({ int rv = 0; asm volatile("lw %0, (%1);": "+r" (rv): "r" (v):); rv; })
 
-#define  flush(x)            clflush_f(x)
-#define  flush_nofence(x)    clflush(x)
-#define  memwrite(x)         mwrite(x)
-#define  memread(x)          mread(x)
+#include "flexicas/flexicas-pfc.h"
+#define MAKE_CMD(p, cmd) (((uint64_t)(p) & FLEXICAS_PFC_ADDR)|cmd)
+#define READ_PFC() read_csr(0x8F0)
+#define WRITE_PFC(cmd) ({ uint64_t __cmd = cmd; write_csr(0x8F0, __cmd); })
 
-int      llc_hit             (void *p);
-int      check_mread         (void *p);
-void     set_coloc_target    (void *p);
-int      check_coloc         (void *p);
+#define fence() WRITE_PFC(FLEXICAS_PFC_FENCE)
+#define flush_nofence(p) WRITE_PFC(MAKE_CMD(p, FLEXICAS_PFC_FLUSH))
+#define FLUSH(p) { fence(); WRITE_PFC(MAKE_CMD(p, FLEXICAS_PFC_FLUSH)); fence(); }
+
+
+#define llc_hit(p) ({ WRITE_PFC(MAKE_CMD(p, FLEXICAS_PFC_QUERY)); READ_PFC(); })
+#define CHECK_ACCESS(p) ({ WRITE_PFC(MAKE_CMD(p, FLEXICAS_PFC_QUERY)); READ_ACCESS(p); READ_PFC(); })
+#define SET_COLOC(p) ({ WRITE_PFC(MAKE_CMD(p, FLEXICAS_PFC_CONGRU_TARGET)); })
+#define CHECK_COLOC(p) ({ WRITE_PFC(MAKE_CMD(p, FLEXICAS_PFC_CONGRU_QUERY)); READ_PFC(); })

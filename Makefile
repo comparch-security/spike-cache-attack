@@ -14,10 +14,10 @@ else
     CFLAGS = $(CFLAGS_COMMON) -O2
 endif
 
-UTILS_HEADERS  = $(wildcard utils/*.hpp)
-ATTACK_HEADERS = $(wildcard attack/*.hpp)
+UTILS_HEADERS  = $(wildcard utils/*.h)
+ATTACK_HEADERS = $(wildcard attack/*.h)
 
-UTILS_OBJS     = utils/cache_utils.o utils/memory_utils.o utils/misc_utils.o
+UTILS_OBJS     = utils/memory_utils.o utils/misc_utils.o
 ATTACK_OBJS    = attack/attacker_helper.o attack/ctpp.o attack/ct.o 
 
 all: ctpp-test ct-test

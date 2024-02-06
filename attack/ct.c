@@ -9,37 +9,40 @@
 #include <sys/mman.h>
 #include <assert.h>
 
-// Consider this file only if the target machine has inclusive caches 
+// Consider this file only if the target machine has inclusive caches
 // according to configuration.h
 #include "attack.h"
 #include "../utils/memory_utils.h"
 #include "../utils/misc_utils.h"
 
-#define DPRINT
+//#define DPRINT
 
 ////////////////////////////////////////////////////////////////////////////////
 // Function declarations
 
-int ct(uint64_t *evset, int evset_max, uint64_t victim, int nway, uint64_t page, uint64_t drain, int* evset_len);
+int ct(uint64_t *evset, int evset_max, uint64_t victim, int nway, uint64_t page, int* evset_len);
 
 ////////////////////////////////////////////////////////////////////////////////
 
 void attacker(){
   uint64_t *evict_mem;
-  uint64_t *drain_mem;
   mem_map_shared(&evict_mem, EVICT_LLC_SIZE, usehugepage);
-  mem_map_shared(&drain_mem, EVICT_LLC_SIZE, usehugepage);
 
   uint64_t succ = 0 ;
   uint64_t target_index, target_addr;
   uint64_t evset[32];
   int evset_len;
+
+  // preload TLB for the whole prime pool
+  SEQ_ACCESS_W_OFF(evict_mem, 0, 0, MAX_POOL_SIZE, 4096);
+  printf("TLB preloaded.\n");
+
   for (uint64_t t=0; t<TEST_LEN; t++) {
     target_index = ((rand() % SHARED_MEM_SIZE) >> 3) & (~0x7ull);
     target_addr = (uint64_t)(shared_mem + target_index);
     evset_len = 0;
 
-    if(ct(evset, 32, target_addr, LLC_WAYS, (uint64_t)evict_mem, (uint64_t)drain_mem, &evset_len)) {
+    if(ct(evset, 32, target_addr, LLC_WAYS, (uint64_t)evict_mem, &evset_len)) {
       succ++;
       char disp = 0;
       if(succ == 1) disp = 1;
@@ -57,12 +60,9 @@ void attacker(){
 
   KILL_HELPER();
   mem_unmap(evict_mem,  EVICT_LLC_SIZE);
-  mem_unmap(drain_mem,  EVICT_LLC_SIZE);
 }
 
-int ct(uint64_t *evset, int evset_max, uint64_t victim, int nway, uint64_t page, uint64_t drain, int* evset_len){
-
-  printf("enter ct test.\n");
+int ct(uint64_t *evset, int evset_max, uint64_t victim, int nway, uint64_t page, int* evset_len){
 
   static uint64_t prime_index  = 0;
   *evset_len = 0;
@@ -70,25 +70,22 @@ int ct(uint64_t *evset, int evset_max, uint64_t victim, int nway, uint64_t page,
   int prime_len = 0;
 #endif
 
-  do {
-    if(prime_index >= MAX_POOL_SIZE) prime_index = 0;
+  uint64_t addr_start = CAL_SATRT_ADDR(page, victim, 0);
+  uint64_t addr = addr_start;
 
+  do {
     HELPER_READ_ACCESS(victim);
-    printf("helper read %lx.\n", victim);
 
     while(1) {
-      uint64_t addr = CAL_SATRT_ADDR(page, victim, prime_index);
-      prime_index++;
+      if(prime_index >= MAX_POOL_SIZE) prime_index = 0;
+      else                             prime_index++;
 #ifdef DPRINT
       prime_len++;
-      printf(".");
+      if((prime_len % 1024) == 0) {
+        printf(".");
+        fflush(stdout);
+      }
 #endif
-
-      // preload TLB
-      uint64_t addr_preload = addr ^ 0x800ull;
-      READ_ACCESS(addr_preload);
-      fence();
-      if(!HELPER_CHECK(victim)) continue;
 
       // test
       READ_ACCESS(addr);
@@ -97,10 +94,14 @@ int ct(uint64_t *evset, int evset_max, uint64_t victim, int nway, uint64_t page,
         evset[*evset_len] = addr;
         *evset_len += 1;
 #ifdef DPRINT
-        printf("find %d evset element by prime %d address.\n", *evset_len, prime_len);
+        printf("(%d)\n", prime_len);
 #endif
         break;
       }
+
+      // failed
+      if(prime_index == 0) addr = addr_start;
+      else                 addr += SEQ_OFFSET;
     }
   } while(*evset_len < nway);
 
