@@ -64,92 +64,99 @@ int ppp(uint64_t *evset, int evset_max, uint64_t victim, int nway, uint64_t page
   *evset_len = 0;
 
   do {
+    if(prime_index + prime_pool_len >= MAX_POOL_SIZE) prime_index = 0;
+
+    uint64_t *evset_mask = (uint64_t*)calloc(prime_pool_len/64, sizeof(uint64_t));
+    uint64_t addr;
+    int all_cached;
+#ifdef DPRINT
+    int addr_count = 0;
+#endif
+
+    // preload TLB for prime pool
+    SEQ_ACCESS(page, victim, prime_index, prime_pool_len);
+
     do {
-      if(prime_index + prime_pool_len >= MAX_POOL_SIZE) prime_index = 0;
+      // PPP prime
+      addr = CAL_SATRT_ADDR(page, victim, prime_index);
+      for(int i=0; i<prime_pool_len; i++, addr += SEQ_OFFSET) {
+        if(!(evset_mask[i>>6] & (1ull << (i&0x3f))))
+          READ_ACCESS(addr);
+      }
 
+      // PPP prune
 #ifdef DPRINT
-      HELPER_READ_ACCESS(victim); // otherwise set coloc may crash
+      addr_count = 0;
 #endif
-
-      // preload TLB for prime pool
-      SEQ_ACCESS(page, victim, prime_index, prime_pool_len);
-
-      uint64_t *evset_mask = (uint64_t*)calloc(prime_pool_len/64, sizeof(uint64_t));
-      uint64_t addr;
-      int all_cached;
-#ifdef DPRINT
-      int addr_count = 0;
-      int coloc_addr_count = 0;
-#endif
-
-      do {
-        // PPP prime
-        addr = CAL_SATRT_ADDR(page, victim, prime_index);
-        for(int i=0; i<prime_pool_len; i++, addr += SEQ_OFFSET) {
-          if(!(evset_mask[i>>6] & (1ull << (i&0x3f))))
-            READ_ACCESS(addr);
-        }
-
-        // PPP prune
-#ifdef DPRINT
-        HELPER_SET_COLOC(victim);
-        addr_count = 0;
-        coloc_addr_count = 0;
-#endif
-        all_cached = 1;
-        addr = CAL_SATRT_ADDR(page, victim, prime_index+prime_pool_len-1);
-        for(int i=prime_pool_len-1; i>=0; i--, addr -= SEQ_OFFSET) {
-          if(!(evset_mask[i>>6] & (1ull << (i&0x3f)))) {
-#ifdef DPRINT
-            addr_count++;
-            if(CHECK_COLOC(addr)) coloc_addr_count++;
-#endif
-            if(!CHECK_ACCESS(addr)) {
-              evset_mask[i>>6] |= (1ull << (i&0x3f));
-              all_cached = 0;
-            }
-          }
-        }
-#ifdef DPRINT
-        printf("[%d, %d]", addr_count, coloc_addr_count); fflush(stdout);
-#endif
-      } while(!all_cached);
-
-      // enforce order again
+      all_cached = 1;
       addr = CAL_SATRT_ADDR(page, victim, prime_index+prime_pool_len-1);
       for(int i=prime_pool_len-1; i>=0; i--, addr -= SEQ_OFFSET) {
-        if(!(evset_mask[i>>6] & (1ull << (i&0x3f)))) READ_ACCESS(addr);
-      }      
+        if(!(evset_mask[i>>6] & (1ull << (i&0x3f)))) {
+#ifdef DPRINT
+          addr_count++;
+#endif
+          if(!CHECK_ACCESS(addr)) {
+            evset_mask[i>>6] |= (1ull << (i&0x3f));
+            all_cached = 0;
+          }
+        }
+      }
+#ifdef DPRINT
+      printf("[%d]", addr_count); fflush(stdout);
+#endif
+    } while(!all_cached);
 
-      // PPP probe
+    // enforce order again
+    addr = CAL_SATRT_ADDR(page, victim, prime_index+prime_pool_len-1);
+    for(int i=prime_pool_len-1; i>=0; i--, addr -= SEQ_OFFSET) {
+      if(!(evset_mask[i>>6] & (1ull << (i&0x3f)))) READ_ACCESS(addr);
+    }
+
+    // PPP probe
+    int len, probe_round = 0;
+    do {
+      len = 0;
       HELPER_READ_ACCESS(victim);
       addr = CAL_SATRT_ADDR(page, victim, prime_index+prime_pool_len-1);
       for(int i=prime_pool_len-1; i>=0; i--, addr -= SEQ_OFFSET) {
         if(!(evset_mask[i>>6] & (1ull << (i&0x3f)))) {
-          if(!CHECK_ACCESS(addr) && *evset_len < evset_max) {
-            evset[*evset_len] = addr;
-            *evset_len += 1;
-          }
+          if(CHECK_ACCESS(addr)) evset_mask[i>>6] |= (1ull << (i&0x3f));
+          else len++;
         }
       }
-
-      prime_index += prime_pool_len;
+      probe_round++;
 #ifdef DPRINT
-      printf("(%d)\n", *evset_len);
+      printf("(%d)", len); fflush(stdout);
 #endif
-    } while(*evset_len < nway);
+    } while(len > nway && probe_round < 4);
 
-    // check evset
-    int coloc_count = 0;
-    HELPER_SET_COLOC(victim);
-    for(int i=0; i<*evset_len; i++)
-      if(CHECK_COLOC(evset[i])) coloc_count++;
+    // collect
+    if(len > 0) {
+      addr = CAL_SATRT_ADDR(page, victim, prime_index+prime_pool_len-1);
+      for(int i=prime_pool_len-1; i>=0 && *evset_len < evset_max; i--, addr -= SEQ_OFFSET) {
+        if(!(evset_mask[i>>6] & (1ull << (i&0x3f)))) {
+          evset[*evset_len] = addr;
+          *evset_len += 1;
+        }
+      }
+    }
+
+    prime_index += prime_pool_len;
+#ifdef DPRINT
+    printf(":%d\n", *evset_len);
+#endif
+  } while(*evset_len < nway);
+
+  // check evset
+  int coloc_count = 0;
+  HELPER_SET_COLOC(victim);
+  for(int i=0; i<*evset_len; i++)
+    if(CHECK_COLOC(evset[i])) coloc_count++;
 
 #ifdef DPRINT
-    printf("a %d elements evset contains %d coloc addresses.\n", *evset_len, coloc_count);
+  printf("a %d elements evset contains %d coloc addresses.\n", *evset_len, coloc_count);
 #endif
-    if(coloc_count >= nway) return 1;
-  } while (*evset_len < evset_max);
+  if(coloc_count >= nway) return 1;
 
   return 0;
 }
