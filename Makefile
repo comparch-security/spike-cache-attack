@@ -18,9 +18,10 @@ UTILS_HEADERS  = $(wildcard utils/*.h)
 ATTACK_HEADERS = $(wildcard attack/*.h)
 
 UTILS_OBJS     = utils/memory_utils.o utils/misc_utils.o
-ATTACK_OBJS    = attack/attacker_helper.o attack/ctpp.o attack/ct.o attack/ct-fast.o attack/ppp.o 
+ATTACK_OBJS    = attack/attacker_helper.o
+ATTACKS        = ctpp ct ct-fast ppp
 
-all: ctpp-test ct-test ct-fast-test ppp-test
+all: $(ATTACKS)
 
 .PONY: all
 
@@ -30,20 +31,11 @@ $(UTILS_OBJS) : %o:%c $(UTILS_HEADERS)
 $(ATTACK_OBJS) : %o:%c $(ATTACK_HEADERS) $(UTILS_HEADERS)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-ctpp-test: attack/main.c attack/attacker_helper.o attack/ctpp.o $(UTILS_OBJS)
-	$(CC) $(CFLAGS) $^ -o $@
-
-ct-test: attack/main.c attack/attacker_helper.o attack/ct.o $(UTILS_OBJS)
-	$(CC) $(CFLAGS) $^ -o $@
-
-ct-fast-test: attack/main.c attack/attacker_helper.o attack/ct-fast.o $(UTILS_OBJS)
-	$(CC) $(CFLAGS) $^ -o $@
-
-ppp-test: attack/main.c attack/attacker_helper.o attack/ppp.o $(UTILS_OBJS)
+$(ATTACKS) : %:attack/%.c attack/main.c $(ATTACK_OBJS) $(UTILS_OBJS)
 	$(CC) $(CFLAGS) $^ -o $@
 
 clean:
-	-rm $(UTILS_OBJS) $(CACHE_OBJS)
-	-rm ctpp-test ct-test ct-fast-test ppp-test
+	-rm $(UTILS_OBJS) $(ATTACK_OBJS)
+	-rm $(ATTACKS)
 
 .PHONY: clean
