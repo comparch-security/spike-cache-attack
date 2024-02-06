@@ -117,7 +117,7 @@ int ct_fast(uint64_t *evset, int evset_max, uint64_t victim, int nway, uint64_t 
       if(CHECK_COLOC(evset[i])) coloc_count++;
 
 #ifdef DPRINT
-    printf("evset contains %d coloc addresses.\n", coloc_count);
+    printf("a %d elements evset contains %d coloc addresses.\n", *evset_len, coloc_count);
 #endif
     if(coloc_count >= nway) return 1;
   } while (*evset_len < evset_max);
